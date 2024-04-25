@@ -76,19 +76,51 @@ func (db *Database) GetCar(ctx context.Context, id int) (*Car, error) {
 }
 
 func (db *Database) DeleteCar(ctx context.Context, id int) error {
-	_, err := db.ExecContext(ctx, DeleteCar, id)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, DeleteCar, id)
 	if err != nil {
 		return fmt.Errorf("error deleting car: %v", err)
 	}
-	return err
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+	committed = true
+	return nil
 }
 
 func (db *Database) UpdateCarInfo(ctx context.Context, id int, mark, model string, year, ownerId int) error {
-	_, err := db.ExecContext(ctx, UpdateCarInfo, mark, model, year, id, ownerId)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	_, err = tx.ExecContext(ctx, UpdateCarInfo, mark, model, year, id, ownerId)
 	if err != nil {
 		return fmt.Errorf("error updating car info: %v", err)
 	}
-	return err
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+	committed = true
+	return nil
 }
 
 func (db *Database) OwnerExists(ctx context.Context, ownerId int) bool {
@@ -102,33 +134,64 @@ func (db *Database) OwnerExists(ctx context.Context, ownerId int) bool {
 }
 
 func (db *Database) AddNewCar(ctx context.Context, regNum, mark, model string, year int, ownerId int64) (int64, error) {
-	var existingId, newId int64
-	err := db.QueryRowContext(ctx, CheckCarExists, regNum).Scan(&existingId)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("error starting transaction: %v", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var existingId int64
+	err = tx.QueryRowContext(ctx, CheckCarExists, regNum).Scan(&existingId)
 	if err == nil {
 		return existingId, ErrCarExists
 	} else if err != sql.ErrNoRows {
 		return 0, fmt.Errorf("error checking car existence: %v", err)
 	}
 
-	err = db.QueryRowContext(ctx, AddNewCar, regNum, mark, model, year, ownerId).Scan(&newId)
+	var newId int64
+	err = tx.QueryRowContext(ctx, AddNewCar, regNum, mark, model, year, ownerId).Scan(&newId)
 	if err != nil {
 		return 0, fmt.Errorf("error adding new car: %v", err)
 	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("error committing transaction: %v", err)
+	}
+	committed = true
 	return newId, nil
 }
 
 func (db *Database) GetOrCreateOwner(ctx context.Context, owner Owner) (int64, error) {
-	var ownerId int64
-	err := db.QueryRowContext(ctx, СheckPerson, owner.Name, owner.Surname).Scan(&ownerId)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			err = db.QueryRowContext(ctx, AddPerson, owner.Name, owner.Surname).Scan(&ownerId)
-			if err != nil {
-				return 0, err
-			}
-		} else {
+		return 0, fmt.Errorf("error starting transaction: %v", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var ownerId int64
+	err = tx.QueryRowContext(ctx, СheckPerson, owner.Name, owner.Surname).Scan(&ownerId)
+	if err == sql.ErrNoRows {
+		err = tx.QueryRowContext(ctx, AddPerson, owner.Name, owner.Surname).Scan(&ownerId)
+		if err != nil {
 			return 0, err
 		}
+	} else if err != nil {
+		return 0, fmt.Errorf("error checking owner existence: %v", err)
 	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("error committing transaction: %v", err)
+	}
+	committed = true
 	return ownerId, nil
 }
