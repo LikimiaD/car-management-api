@@ -1,0 +1,206 @@
+definitions:
+  api.plateResult:
+    properties:
+      error:
+        type: string
+      id:
+        type: integer
+      inputPlate:
+        type: string
+    type: object
+  database.Car:
+    properties:
+      id:
+        type: integer
+      mark:
+        type: string
+      model:
+        type: string
+      owner:
+        $ref: '#/definitions/database.Owner'
+      regNum:
+        type: string
+      year:
+        type: integer
+    type: object
+  database.Owner:
+    properties:
+      name:
+        type: string
+      ownerId:
+        type: integer
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API Server for registration car plates in Effective Mobile
+  title: Effective Mobile Go API
+  version: 0.0.1
+paths:
+  /api/cars:
+    get:
+      consumes:
+      - application/json
+      description: Get cars with optional filtering by mark, model, and year, with
+        pagination
+      parameters:
+      - description: Filter by car mark
+        in: query
+        name: mark
+        type: string
+      - description: Filter by car model
+        in: query
+        name: model
+        type: string
+      - description: Filter by car year
+        in: query
+        name: year
+        type: integer
+      - description: Limit number of cars returned
+        in: query
+        name: limit
+        type: integer
+      - description: Offset where to start fetching cars
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/database.Car'
+            type: array
+      summary: Get list of cars
+      tags:
+      - cars
+    post:
+      consumes:
+      - application/json
+      description: Add new cars using registration numbers
+      parameters:
+      - description: Array of registration numbers
+        in: body
+        name: regNums
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Successfully added cars with results for each plate
+          schema:
+            items:
+              $ref: '#/definitions/api.plateResult'
+            type: array
+        "400":
+          description: Bad request due to malformed JSON input
+          schema:
+            type: string
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Add new cars
+      tags:
+      - cars
+  /api/cars/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a car by its ID
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid car ID
+          schema:
+            type: string
+        "404":
+          description: Car not found
+          schema:
+            type: string
+        "500":
+          description: Error while deleting the car
+          schema:
+            type: string
+      summary: Delete a car
+      tags:
+      - cars
+    get:
+      consumes:
+      - application/json
+      description: Get details of a car by its ID
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved the car
+          schema:
+            $ref: '#/definitions/database.Car'
+        "400":
+          description: Invalid car ID
+          schema:
+            type: string
+        "404":
+          description: Car not found
+          schema:
+            type: string
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get a car
+      tags:
+      - cars
+    put:
+      consumes:
+      - application/json
+      description: Update car's information by its ID
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Car data
+        in: body
+        name: car
+        required: true
+        schema:
+          $ref: '#/definitions/database.Car'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "404":
+          description: Car not found
+      summary: Update a car
+      tags:
+      - cars
+swagger: "2.0"

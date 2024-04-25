@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  database:
+    image: postgres:16
+    container_name: postgres
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "db_admin", "-d", "db_name" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    ports:
+      - '5432:5432'
+    volumes:
+      - ~/apps/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=db_password
+      - POSTGRES_USER=db_admin
+      - POSTGRES_DB=db_name
+
+  app:
+    build: .
+    container_name: go-rest-api
+    ports:
+      - '8081:8081'
+    depends_on:
+      - database
+    environment:
+      - DATABASE_HOST=database
+      - DATABASE_USER=db_admin
+      - DATABASE_PASSWORD=db_password
+      - DATABASE_NAME=db_name
+    restart: always
+
+  fastapi:
+    build: ./test/third_party_api
+    container_name: third_party_api
+    ports:
+      - '8000:8000'
+    restart: always
